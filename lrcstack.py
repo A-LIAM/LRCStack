@@ -3,6 +3,7 @@ import csv
 import re
 import os
 import sys
+import unicodedata
 
 # --- CONFIGURATION ---
 CSV_DELIMITER = ';'
@@ -64,6 +65,17 @@ def apply_formatting(text, enclose_mode):
             return f"({text})"
     return text
 
+def display_width(text):
+    """Calculates the display width of a string, accounting for full-width characters."""
+    width = 0
+    for char in text:
+        # 'F', 'W', 'A' (Fullwidth, Wide, Ambiguous) are treated as 2-width characters.
+        if unicodedata.east_asian_width(char) in ('F', 'W', 'A'):
+            width += 2
+        else:
+            width += 1
+    return width
+
 def show_preview(lines, verbosity=0, interactive=False, is_csv=False):
     """Shows a preview of the output and asks for confirmation if interactive."""
     if not lines:
@@ -80,11 +92,34 @@ def show_preview(lines, verbosity=0, interactive=False, is_csv=False):
     preview_lines = lines[:max_lines]
         
     # Display the lines
-    for line in preview_lines:
-        # For CSV, format with | for better readability
-        if is_csv:
-            print(" | ".join(map(str, line)))
+    if is_csv:
+        # Simple logic to preserve column width for CSV preview
+        if not preview_lines:
+            print("(empty csv)")
         else:
+            # Calculate max width for each column using display_width
+            num_columns = max(len(row) for row in preview_lines) if preview_lines else 0
+            col_widths = [0] * num_columns
+            for row in preview_lines:
+                for i, cell in enumerate(row):
+                    width = display_width(str(cell))
+                    if width > col_widths[i]:
+                        col_widths[i] = width
+            
+            # Print formatted rows
+            for row in preview_lines:
+                formatted_row = []
+                for i, cell in enumerate(row):
+                    cell_str = str(cell)
+                    padding = col_widths[i] - display_width(cell_str)
+                    formatted_row.append(cell_str + ' ' * padding)
+                # Pad row with empty cells if it's shorter
+                while len(formatted_row) < num_columns:
+                    formatted_row.append(" " * col_widths[len(formatted_row)])
+                print("    ".join(formatted_row))
+
+    else: # For non-CSV (LRC)
+        for line in preview_lines:
             print(line)
         
     if len(lines) > len(preview_lines):
