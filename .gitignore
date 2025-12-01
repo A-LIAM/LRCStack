@@ -63,6 +63,8 @@ venv.bak/
 
 # Gemini
 .gemini/
+GEMINI.md
 
 # Obsidian
 .obsidian/
+Features/
